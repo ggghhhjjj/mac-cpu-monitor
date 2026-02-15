@@ -285,6 +285,7 @@ on csvLog(pid, nm, cpu)
 	end if
 	
 	set found to false
+	set matchedCmd to ""
 	set nm_lower to toLower(nm)
 	
 	repeat with c in cs
@@ -292,6 +293,7 @@ on csvLog(pid, nm, cpu)
 		set pos to offset of c_lower in nm_lower
 		if pos > 0 then
 			set found to true
+			set matchedCmd to c
 			printDbg("csvLog: MATCH found! command='" & c & "' matched in process='" & nm & "' pid=" & pid & " cpu=" & cpu)
 			exit repeat
 		end if
@@ -301,7 +303,7 @@ on csvLog(pid, nm, cpu)
 		return
 	end if
 	
-	set rec to {ts:getTimestamp(), pid:pid, nm:nm, cpu:cpu}
+	set rec to {ts:getTimestamp(), pid:pid, nm:nm, cpu:cpu, cmd:matchedCmd}
 	set end of csvBuf to rec
 	printDbg("csvLog: record added to buffer. Buffer size: " & (count of csvBuf))
 end csvLog
@@ -317,40 +319,55 @@ on csvFlush()
 	
 	printDbg("Flush " & (count of csvBuf) & " records")
 	
-	-- Group records by filename
-	set fileDict to {}
+	-- Simplified approach: build file paths and write all matching records at once
+	set filePaths to {}
 	
-	repeat with rec in csvBuf
-		set procN to nm of rec
-		set pref to text 1 thru 10 of procN
-		set fn to sanitizeFn(pref)
+	-- First pass: collect unique file paths using indexed loop
+	repeat with bufIdx from 1 to count of csvBuf
+		set rec to item bufIdx of csvBuf
+		set matchedCmd to cmd of rec
+		set fn to sanitizeFn(matchedCmd)
 		set d to dir of conf
 		set fp to d & "/" & fn & ".csv"
 		
-		-- Find or create file entry
-		set fileFound to false
-		repeat with idx from 1 to count of fileDict
-			set entry to item idx of fileDict
-			if (filepath of entry) = fp then
-				set fileFound to true
-				set recs to records of entry
-				set end of recs to rec
-			set item idx of fileDict to {filepath:fp, records:recs}
+		-- Check if this filepath is already in our list using indexed loop
+		set pathExists to false
+		repeat with pathIdx from 1 to count of filePaths
+			set existingPath to item pathIdx of filePaths
+			if existingPath = fp then
+				set pathExists to true
 				exit repeat
 			end if
 		end repeat
 		
-		if not fileFound then
-			set end of fileDict to {filepath:fp, records:{rec}}
+		if not pathExists then
+			set end of filePaths to fp
 		end if
 	end repeat
 	
-	-- Write all files
-	repeat with entry in fileDict
-		set fp to filepath of entry
-		set rs to records of entry
+	printDbg("csvFlush: Found " & (count of filePaths) & " unique file paths")
+	
+	-- Second pass: for each file path, collect and write all matching records
+	repeat with pathIdx from 1 to count of filePaths
+		set fp to item pathIdx of filePaths
+		set recordsToWrite to {}
+		
+		-- Collect all records for this file path
+		repeat with bufIdx from 1 to count of csvBuf
+			set rec to item bufIdx of csvBuf
+			set matchedCmd to cmd of rec
+			set fn to sanitizeFn(matchedCmd)
+			set d to dir of conf
+			set recPath to d & "/" & fn & ".csv"
+			
+			if recPath = fp then
+				set end of recordsToWrite to rec
+			end if
+		end repeat
+		
+		printDbg("csvFlush: Writing " & (count of recordsToWrite) & " records to " & fp)
 		set nhdr to not (fileExist(fp))
-		writeCsv(fp, rs, nhdr)
+		writeCsv(fp, recordsToWrite, nhdr)
 	end repeat
 	
 	set csvBuf to {}
@@ -415,11 +432,23 @@ on writeCsv(fp, rs, nhdr)
 		if last_slash > 0 then
 			set dir_path to text 1 thru last_slash of fp
 			do shell script "mkdir -p " & quoted form of dir_path
+			printDbg("writeCsv: Created directory " & dir_path)
 		end if
 		
-		-- Use shell to append CSV data
-		repeat with rec in rs
-			set ln to (ts of rec) & "," & (pid of rec) & "," & (nm of rec) & "," & (cpu of rec)
+		printDbg("writeCsv: File path = " & fp & " (new file: " & nhdr & ")")
+		
+		-- Use shell to append CSV data - use indexed loop to avoid reference issues
+		repeat with recIdx from 1 to count of rs
+			set rec to item recIdx of rs
+			-- Explicitly convert all fields to strings to avoid list concatenation
+			set tsStr to (ts of rec) as string
+			set pidStr to (pid of rec) as string
+			set nmStr to (nm of rec) as string
+			set cpuStr to (cpu of rec) as string
+			-- Replace comma with dot for decimal separator (locale issue)
+			set cpuStr to replace_tx(cpuStr, ",", ".")
+			set ln to tsStr & "," & pidStr & "," & nmStr & "," & cpuStr
+			printDbg("writeCsv: Writing line: " & ln)
 			
 			if nhdr then
 				-- First record - write header plus data
