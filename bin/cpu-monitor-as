@@ -1,0 +1,13 @@
+#!/bin/bash
+# Wrapper script to invoke CPU Monitor AppleScript
+# Passes all arguments to the AppleScript engine
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+APPLESCRIPT="$PROJECT_DIR/src/cpu-monitor.scpt"
+
+# Handle SIGINT (Ctrl+C) to ensure CSV flush
+trap 'kill $!; exit 0' SIGINT
+
+# Run the AppleScript, passing all arguments
+osascript -l AppleScript "$APPLESCRIPT" "$@"

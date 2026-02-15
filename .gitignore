@@ -1,0 +1,37 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+._*
+Icon\r
+.Spotlight-V100/
+.fseventsd/
+.DocumentRevisions-V100/
+.Trashes/
+.VolumeIcon.icns
+
+# AppleScript / Script Editor artifacts
+# Compiled script formats and script bundles
+*.scptc
+*.scptd
+
+# Build artifacts and app bundles
+*.app
+*.pkg
+*.dmg
+
+# Editor and IDE settings
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Logs and caches
+*.log
+*.cache
+
+# Temporary files
+*.swp
+*~
+
+# Ignore macOS resource forks and extended attributes
+*.~*~
