@@ -1,16 +1,16 @@
 # CPU Monitor - AppleScript Edition
 
-A lightweight, dependency-free AppleScript implementation of CPU Monitor for macOS users without sudo privileges. Full feature parity with the C++ version.
+A lightweight, dependency-free AppleScript implementation of CPU Monitor for macOS users without sudo privileges.
 
 ## Features
 
-- ✅ **No sudo required** — Uses macOS `ps` command instead of restricted libproc APIs
-- ✅ **Pure AppleScript** — Single self-contained script, no external dependencies
-- ✅ **Full feature parity** — Same CLI options, CSV logging, notifications, debug mode
-- ✅ **State machine monitoring** — Detects sustained high CPU usage (not transient spikes)
-- ✅ **Flexible CSV logging** — In-memory buffering with automatic periodic flush
-- ✅ **Native macOS notifications** — Desktop alerts when thresholds exceeded
-- ✅ **Lightweight** — Minimal resource overhead, efficient ps parsing
+- **No sudo required** — Uses macOS `ps` command instead of restricted libproc APIs
+- **Pure AppleScript** — Single self-contained script, no external dependencies
+- **Full feature parity** — Same CLI options, CSV logging, notifications, debug mode
+- **State machine monitoring** — Detects sustained high CPU usage (not transient spikes)
+- **Flexible CSV logging** — In-memory buffering with automatic periodic flush
+- **Native macOS notifications** — Desktop alerts when thresholds exceeded
+- **Lightweight** — Minimal resource overhead, efficient ps parsing
 
 ## Installation
 
@@ -79,11 +79,6 @@ PID %CPU COMM
 300  5.2 Safari
 ```
 
-**Advantages over C++ version:**
-- No sudo needed for typical user processes (Chrome, VS Code, terminal, etc.)
-- Works for corporate-locked machines without admin privileges
-- Still works with sudo for system process monitoring
-
 ### State Machine
 
 Monitors are based on consecutive threshold exceedances:
@@ -119,32 +114,12 @@ CPU Monitor
 High CPU: Chrome (PID 1234) - 85.2%
 ```
 
-## Differences from C++ Version
-
-| Aspect | C++ Version | AppleScript Version |
-|--------|---|---|
-| **Privileges required** | Sudo (for system processes) | None (for user processes) |
-| **Process data source** | libproc (kernel APIs) | ps command |
-| **Target users** | All macOS users | Corporate/restricted environments |
-| **Performance** | Faster (compiled C++) | Slightly slower (interpreted) |
-| **CPU% accuracy** | Exact (kernel data) | Accurate (ps reports CPU%) |
-| **Dependencies** | None | None (AppleScript built-in) |
-| **Deployment** | Binary executable | Single `.scpt` file |
-
 ## Limitations
 
 1. **Notification permission:** macOS may require one-time user authorization in System Preferences → Notifications
 2. **Process name truncation:** Very long command names may be truncated by `ps` output
 3. **System processes:** CPU data for privileged processes (WindowServer, kernel_task) may be unavailable without sudo
 4. **Single-threaded:** Blocks on 60-second sampling interval (acceptable for monitoring use case)
-
-## Advantages Over C++
-
-- **No compilation needed** — Deploy single `.scpt` file
-- **No sudo required** — Works in restricted corporate environments
-- **Lower friction** — No build system, no Makefile
-- **Easy to modify** — AppleScript is readable and editable in any text editor
-- **Cross-compatible** — Works on any macOS version with AppleScript support (10.9+)
 
 ## Debug Mode
 
@@ -188,7 +163,6 @@ Enable detailed output to troubleshoot state machine behavior:
 
 ### Incorrect CPU Percentages
 
-- Different measurement methods may show slightly different CPU% than C++ version
 - This is normal — measurements can vary by 1-5% between tools
 - For validation, compare with `ps -p <PID> -o %cpu` or Activity Monitor
 
@@ -198,19 +172,11 @@ Enable detailed output to troubleshoot state machine behavior:
 - Check that `--csv-commands` contains valid process names (substring match)
 - Run with `--debug` to see CSV buffer flushing events
 
-## Comparison with C++ Version
-
-Use the **AppleScript version** if:
+Use to monitor CPU usage of user processes without sudo access, ideal for:
 - You don't have sudo access
 - Working in a corporate/restricted environment
 - Want zero deployment friction (single file)
 - Need fast development iteration
-
-Use the **C++ version** if:
-- You need to monitor privileged system processes (WindowServer, kernel_task)
-- Maximum performance is critical
-- Prefer compiled binary
-- Need lower-level process access
 
 ## Future Enhancements
 
@@ -225,7 +191,7 @@ Potential improvements for future releases:
 
 ## License
 
-Same as parent C++ CPU Monitor project.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Contributing
 
@@ -239,7 +205,6 @@ To extend this AppleScript version:
 ## Support
 
 For issues or feature requests:
-- Compare behavior with C++ version
 - Use `--debug` flag to troubleshoot
 - Check ps output manually: `ps -axo pid,%cpu,comm | head`
 - Review AppleScript syntax near error location
