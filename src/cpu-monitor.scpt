@@ -72,15 +72,15 @@ on getTimestamp()
 end getTimestamp
 
 -- ============================================================================
--- GET TOP PROCESS
+-- GET ALL PROCESSES
 -- ============================================================================
 
-on getTopProcess()
+on getAllProcesses()
 	try
 		set psOut to do shell script "ps -axo pid,%cpu,comm"
 		set psLines to paragraphs of psOut
 		
-		set topProc to {pid:-1, name:"", cpu:0}
+		set allProcs to {}
 		set cnt to 0
 		
 		repeat with i from 2 to count of psLines
@@ -104,9 +104,7 @@ on getTopProcess()
 							end if
 						end repeat
 						
-						if c > (cpu of topProc) then
-							set topProc to {pid:p, name:nm, cpu:c}
-						end if
+						set end of allProcs to {pid:p, name:nm, cpu:c}
 						set cnt to cnt + 1
 					on error
 					end try
@@ -114,14 +112,68 @@ on getTopProcess()
 			end if
 		end repeat
 		
-		printDbg("Sampling: total=" & cnt & " top_pid=" & (pid of topProc) & " top_cpu=" & (cpu of topProc))
-		return topProc
+		printDbg("Sampling: total=" & cnt)
+		return allProcs
 		
 	on error err
 		log "ps error: " & err
 		set shouldExit to true
-		return {pid:-1, name:"", cpu:0}
+		return {}
 	end try
+end getAllProcesses
+
+-- ============================================================================
+-- PROCESS ALL DATA IN SINGLE PASS
+-- ============================================================================
+
+on processAllProcessesOnce(allProcs)
+	if (count of allProcs) = 0 then
+		return {pid:-1, name:"", cpu:0}
+	end if
+	
+	set topProc to item 1 of allProcs
+	
+	repeat with proc in allProcs
+		-- Find top process
+		if (cpu of proc) > (cpu of topProc) then
+			set topProc to proc
+		end if
+		
+		-- Log CSV data for matching processes
+		csvLog((pid of proc), (name of proc), (cpu of proc))
+	end repeat
+	
+	printDbg("Top process: pid=" & (pid of topProc) & " name=" & (name of topProc) & " cpu=" & (cpu of topProc))
+	return topProc
+end processAllProcessesOnce
+
+-- ============================================================================
+-- GET TOP PROCESS FROM LIST
+-- ============================================================================
+
+on getTopProcessFromList(allProcs)
+	if (count of allProcs) = 0 then
+		return {pid:-1, name:"", cpu:0}
+	end if
+	
+	set topProc to item 1 of allProcs
+	repeat with proc in allProcs
+		if (cpu of proc) > (cpu of topProc) then
+			set topProc to proc
+		end if
+	end repeat
+	
+	printDbg("Top process: pid=" & (pid of topProc) & " name=" & (name of topProc) & " cpu=" & (cpu of topProc))
+	return topProc
+end getTopProcessFromList
+
+-- ============================================================================
+-- GET TOP PROCESS (backward compatibility)
+-- ============================================================================
+
+on getTopProcess()
+	set allProcs to getAllProcesses()
+	return getTopProcessFromList(allProcs)
 end getTopProcess
 
 -- ============================================================================
@@ -188,6 +240,41 @@ on split_comma(s)
 end split_comma
 
 -- ============================================================================
+-- STRING TO LOWERCASE
+-- ============================================================================
+
+on toLower(s)
+	set s to s as string
+	set s to replace_tx(s, "A", "a")
+	set s to replace_tx(s, "B", "b")
+	set s to replace_tx(s, "C", "c")
+	set s to replace_tx(s, "D", "d")
+	set s to replace_tx(s, "E", "e")
+	set s to replace_tx(s, "F", "f")
+	set s to replace_tx(s, "G", "g")
+	set s to replace_tx(s, "H", "h")
+	set s to replace_tx(s, "I", "i")
+	set s to replace_tx(s, "J", "j")
+	set s to replace_tx(s, "K", "k")
+	set s to replace_tx(s, "L", "l")
+	set s to replace_tx(s, "M", "m")
+	set s to replace_tx(s, "N", "n")
+	set s to replace_tx(s, "O", "o")
+	set s to replace_tx(s, "P", "p")
+	set s to replace_tx(s, "Q", "q")
+	set s to replace_tx(s, "R", "r")
+	set s to replace_tx(s, "S", "s")
+	set s to replace_tx(s, "T", "t")
+	set s to replace_tx(s, "U", "u")
+	set s to replace_tx(s, "V", "v")
+	set s to replace_tx(s, "W", "w")
+	set s to replace_tx(s, "X", "x")
+	set s to replace_tx(s, "Y", "y")
+	set s to replace_tx(s, "Z", "z")
+	return s as string
+end toLower
+
+-- ============================================================================
 -- CSV LOG SAMPLE
 -- ============================================================================
 
@@ -198,9 +285,14 @@ on csvLog(pid, nm, cpu)
 	end if
 	
 	set found to false
+	set nm_lower to toLower(nm)
+	
 	repeat with c in cs
-		if nm contains c then
+		set c_lower to toLower(c)
+		set pos to offset of c_lower in nm_lower
+		if pos > 0 then
 			set found to true
+			printDbg("csvLog: MATCH found! command='" & c & "' matched in process='" & nm & "' pid=" & pid & " cpu=" & cpu)
 			exit repeat
 		end if
 	end repeat
@@ -211,6 +303,7 @@ on csvLog(pid, nm, cpu)
 	
 	set rec to {ts:getTimestamp(), pid:pid, nm:nm, cpu:cpu}
 	set end of csvBuf to rec
+	printDbg("csvLog: record added to buffer. Buffer size: " & (count of csvBuf))
 end csvLog
 
 -- ============================================================================
@@ -242,7 +335,7 @@ on csvFlush()
 				set fileFound to true
 				set recs to records of entry
 				set end of recs to rec
-				set item idx of fileDict to {filepath:fp, records:recs}
+			set item idx of fileDict to {filepath:fp, records:recs}
 				exit repeat
 			end if
 		end repeat
@@ -270,7 +363,7 @@ end csvFlush
 
 on fileExist(fp)
 	try
-		POSIX file fp as alias
+		do shell script "test -f " & quoted form of fp
 		return true
 	on error
 		return false
@@ -525,7 +618,8 @@ on runLoop()
 	printDbg("Thresh: " & (thresh of conf) & "% | Interval: " & (inter of conf) & "s | Count: " & (cnt of conf))
 	
 	repeat until shouldExit
-		set sample to getTopProcess()
+		set allProcs to getAllProcesses()
+		set sample to processAllProcessesOnce(allProcs)
 		
 		printDbg("Sample: PID=" & (pid of sample) & " Name=" & (name of sample) & " CPU%=" & (cpu of sample))
 		
@@ -551,8 +645,6 @@ on runLoop()
 			notify((name of sample), (pid of sample), (cpu of sample))
 			set countConsec to 0
 		end if
-		
-		csvLog((pid of sample), (name of sample), (cpu of sample))
 		
 		set elapsed to (current date) - lastFlush
 		if elapsed >= FLUSH_SEC then
