@@ -1,4 +1,10 @@
 #!/bin/bash
+#
+# Copyright (c) 2026 dandelion
+# License: MIT (see LICENSE)
+# Author: dandelion
+# GitHub: https://github.com/ggghhhjjj
+#
 # Wrapper script to invoke CPU Monitor AppleScript
 # Passes all arguments to the AppleScript engine
 

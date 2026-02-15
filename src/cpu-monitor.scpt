@@ -1,3 +1,9 @@
+--
+-- Copyright (c) 2026 dandelion
+-- License: MIT (see LICENSE)
+-- Author: dandelion
+-- GitHub: https://github.com/ggghhhjjj
+--
 -- CPU Monitor - AppleScript Edition v1.0.0-AS
 -- Process CPU monitoring using ps command
 -- Works without sudo for most user processes
