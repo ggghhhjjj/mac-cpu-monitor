@@ -94,7 +94,7 @@ This prevents false positives from transient spikes while quickly detecting sust
 
 When `--csv-commands` is specified, matching processes are logged to CSV files:
 
-**File naming:** Command name with special characters (spaces, slashes, colons) replaced by underscores (e.g., `Google_Chrome.csv`, `node.csv`)
+**File naming:** Command name with special characters (spaces, slashes, backslashes, colons, dots) replaced by underscores for filesystem safety (e.g., `Google_Chrome.csv`, `node.csv`)
 
 **CSV format:**
 ```
