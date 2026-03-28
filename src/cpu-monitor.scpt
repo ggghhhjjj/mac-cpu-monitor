@@ -326,10 +326,10 @@ on csvFlush()
 		end repeat
 		
 		if foundIdx = -1 then
-			-- New file path, create entry
+			-- New file path, create entry with initial record list
 			set end of fileRecordMap to {filepath:fp, records:{rec}}
 		else
-			-- Existing file path, append record
+			-- Existing file path, append record to existing list
 			set mapEntry to item foundIdx of fileRecordMap
 			set recs to records of mapEntry
 			set end of recs to rec
@@ -389,7 +389,8 @@ on sanitizeFn(n)
 	if n starts with "-" then
 		set n to "_" & n
 	end if
-	-- Additional safety: limit length to prevent filesystem issues
+	-- Truncate very long names (rare, but prevents filesystem issues)
+	-- Note: This may cause collisions for processes with very long similar names
 	if (length of n) > 200 then
 		set n to text 1 thru 200 of n
 	end if
