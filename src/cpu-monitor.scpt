@@ -302,6 +302,8 @@ on csvFlush()
 	printDbg("Flush " & (count of csvBuf) & " records")
 	
 	-- Build map of file paths to records (single pass O(n))
+	-- Note: AppleScript list modifications create copies, so this has some overhead
+	-- However, it's still better than O(n²) nested loops and acceptable for typical buffer sizes
 	set fileRecordMap to {}
 	
 	repeat with bufIdx from 1 to count of csvBuf
@@ -370,17 +372,22 @@ end fileExist
 
 on sanitizeFn(n)
 	set n to n as string
-	-- Replace special characters and prevent directory traversal
-	-- Order matters: replace ".." before "." to catch directory traversal
+	-- Comprehensive sanitization for filesystem safety
+	-- Replace all path separators and special characters
 	set n to replace_tx(n, "..", "_")
+	set n to replace_tx(n, "...", "_")
 	set n to replace_tx(n, " ", "_")
 	set n to replace_tx(n, "/", "_")
 	set n to replace_tx(n, "\\", "_")
 	set n to replace_tx(n, ":", "_")
 	set n to replace_tx(n, ".", "_")
-	-- Ensure filename doesn't start with dash
+	-- Ensure filename doesn't start with dash (which could be interpreted as flag)
 	if n starts with "-" then
 		set n to "_" & n
+	end if
+	-- Additional safety: limit length to prevent filesystem issues
+	if (length of n) > 200 then
+		set n to text 1 thru 200 of n
 	end if
 	return n
 end sanitizeFn
