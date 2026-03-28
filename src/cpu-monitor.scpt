@@ -250,7 +250,8 @@ end split_comma
 on toLower(s)
 	try
 		return do shell script "printf '%s' " & quoted form of (s as string) & " | tr '[:upper:]' '[:lower:]'"
-	on error
+	on error err
+		printDbg("toLower error: " & err)
 		return s as string
 	end try
 end toLower
@@ -370,11 +371,12 @@ end fileExist
 on sanitizeFn(n)
 	set n to n as string
 	-- Replace special characters and prevent directory traversal
+	-- Order matters: replace ".." before "." to catch directory traversal
+	set n to replace_tx(n, "..", "_")
 	set n to replace_tx(n, " ", "_")
 	set n to replace_tx(n, "/", "_")
 	set n to replace_tx(n, "\\", "_")
 	set n to replace_tx(n, ":", "_")
-	set n to replace_tx(n, "..", "_")
 	set n to replace_tx(n, ".", "_")
 	-- Ensure filename doesn't start with dash
 	if n starts with "-" then
