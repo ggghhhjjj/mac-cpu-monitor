@@ -94,7 +94,7 @@ This prevents false positives from transient spikes while quickly detecting sust
 
 When `--csv-commands` is specified, matching processes are logged to CSV files:
 
-**File naming:** Command names are sanitized for filesystem safety by replacing special characters (spaces, slashes, backslashes, colons) and path traversal patterns ("..", "...", "....") with underscores. Single dots are preserved to maintain version information (e.g., `python3.9`). Filenames starting with dashes are prefixed with underscore. Very long names (>200 chars) are truncated. Examples: `Google_Chrome.csv`, `python3.9.csv`, `node.csv`, `_my-script.csv`
+**File naming:** Command names are sanitized for filesystem safety by replacing special characters (spaces, slashes, backslashes, colons) and path traversal patterns (including "../", "..\", "....", "...", "..") with underscores. Single dots are preserved to maintain version information (e.g., `python3.9`). Filenames starting with dashes are prefixed with underscore. Very long names (>200 chars) use first 190 + last 10 characters to minimize collisions. Examples: `Google_Chrome.csv`, `python3.9.csv`, `node.csv`, `_my-script.csv`
 
 **CSV format:**
 ```

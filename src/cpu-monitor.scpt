@@ -249,9 +249,10 @@ end split_comma
 
 on toLower(s)
 	try
-		-- Use printf with proper argument separation to prevent shell injection
+		-- Use shell for efficient lowercase conversion
+		-- The quoted form provides proper shell escaping
 		set s_str to s as string
-		return do shell script "printf '%s\\n' " & quoted form of s_str & " | tr '[:upper:]' '[:lower:]'"
+		return do shell script "printf '%s' " & quoted form of s_str & " | tr '[:upper:]' '[:lower:]'"
 	on error err
 		printDbg("toLower error: " & err)
 		return s as string
@@ -303,9 +304,9 @@ on csvFlush()
 	
 	printDbg("Flush " & (count of csvBuf) & " records")
 	
-	-- Build map of file paths to records (single pass O(n))
-	-- Note: AppleScript list modifications create copies, so this has some overhead
-	-- However, it's still better than O(n²) nested loops and acceptable for typical buffer sizes
+	-- Build map of file paths to records
+	-- Note: Complexity is O(n*m) where n=records, m=unique files
+	-- For typical use (few CSV commands, 60s buffer), this is acceptable
 	set fileRecordMap to {}
 	
 	repeat with bufIdx from 1 to count of csvBuf
@@ -375,11 +376,13 @@ end fileExist
 on sanitizeFn(n)
 	set n to n as string
 	-- Comprehensive sanitization for filesystem safety
-	-- Replace path traversal patterns and special characters
-	-- Order matters: handle longer patterns first
+	-- Handle path traversal patterns including combined forms first
+	set n to replace_tx(n, "../", "_")
+	set n to replace_tx(n, "..\\", "_")
 	set n to replace_tx(n, "....", "_")
 	set n to replace_tx(n, "...", "_")
 	set n to replace_tx(n, "..", "_")
+	-- Replace other special characters
 	set n to replace_tx(n, " ", "_")
 	set n to replace_tx(n, "/", "_")
 	set n to replace_tx(n, "\\", "_")
@@ -391,8 +394,11 @@ on sanitizeFn(n)
 	end if
 	-- Truncate very long names (rare, but prevents filesystem issues)
 	-- Note: This may cause collisions for processes with very long similar names
+	-- To minimize collisions, we take first 190 chars + last 10 chars
 	if (length of n) > 200 then
-		set n to text 1 thru 200 of n
+		set prefix to text 1 thru 190 of n
+		set suffix to text -10 thru -1 of n
+		set n to prefix & suffix
 	end if
 	return n
 end sanitizeFn
