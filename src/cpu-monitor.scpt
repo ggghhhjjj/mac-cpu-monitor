@@ -249,7 +249,9 @@ end split_comma
 
 on toLower(s)
 	try
-		return do shell script "printf '%s' " & quoted form of (s as string) & " | tr '[:upper:]' '[:lower:]'"
+		-- Use printf with proper argument separation to prevent shell injection
+		set s_str to s as string
+		return do shell script "printf '%s\\n' " & quoted form of s_str & " | tr '[:upper:]' '[:lower:]'"
 	on error err
 		printDbg("toLower error: " & err)
 		return s as string
@@ -373,14 +375,16 @@ end fileExist
 on sanitizeFn(n)
 	set n to n as string
 	-- Comprehensive sanitization for filesystem safety
-	-- Replace all path separators and special characters
-	set n to replace_tx(n, "..", "_")
+	-- Replace path traversal patterns and special characters
+	-- Order matters: handle longer patterns first
+	set n to replace_tx(n, "....", "_")
 	set n to replace_tx(n, "...", "_")
+	set n to replace_tx(n, "..", "_")
 	set n to replace_tx(n, " ", "_")
 	set n to replace_tx(n, "/", "_")
 	set n to replace_tx(n, "\\", "_")
 	set n to replace_tx(n, ":", "_")
-	set n to replace_tx(n, ".", "_")
+	-- Note: Single dots are preserved to maintain version info (e.g., python3.9)
 	-- Ensure filename doesn't start with dash (which could be interpreted as flag)
 	if n starts with "-" then
 		set n to "_" & n
