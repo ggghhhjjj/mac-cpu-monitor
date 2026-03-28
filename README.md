@@ -94,7 +94,7 @@ This prevents false positives from transient spikes while quickly detecting sust
 
 When `--csv-commands` is specified, matching processes are logged to CSV files:
 
-**File naming:** First 10 characters of command + `.csv` (e.g., `chrome.csv`, `node.csv`)
+**File naming:** Command names are sanitized for filesystem safety by replacing special characters (spaces, slashes, backslashes, colons) and path traversal patterns (including `../`, `..\` (Windows-style), `....`, `...`, `..`) with underscores. Single dots are preserved to maintain version information (e.g., `python3.9`). Filenames starting with dashes are prefixed with underscore. Very long names (>200 chars) use first 190 + "..." + last 10 characters to indicate truncation and minimize collisions. Examples: `Google_Chrome.csv`, `python3.9.csv`, `node.csv`, `_my-script.csv`
 
 **CSV format:**
 ```
@@ -104,6 +104,8 @@ timestamp,PID,command,CPU%
 ```
 
 **Buffering:** Samples are buffered in memory and flushed every 60 seconds or on exit (Ctrl+C).
+
+**Directory creation:** The CSV output directory specified with `--csv-dir` will be created automatically if it doesn't exist.
 
 ### Notifications
 
@@ -130,10 +132,17 @@ Enable detailed output to troubleshoot state machine behavior:
 ```
 
 **Debug output includes:**
-- `[DEBUG] CPU Sample:` — Current process and CPU percentage
-- `[DEBUG] Counter State:` — Internal state machine values
-- `[DEBUG] Notification Request:` — Alert triggers
+- `[DEBUG] CPU Monitor started` — Monitoring has started
+- `[DEBUG] Threshold: X% | Interval: Ys | Check count: Z` — Configuration settings
+- `[DEBUG] Sampling: total=N` — Number of processes detected in current sample
+- `[DEBUG] Top process: pid=X name=Y cpu=Z` — Highest CPU process found
+- `[DEBUG] Sample: PID=X Name=Y CPU%=Z` — Current sample data
+- `[DEBUG] Counter: X / Y thresh=Z` — State machine counter status (X consecutive samples / Y needed)
+- `[DEBUG] Alert: name pid=X cpu=Y` — Notification trigger event
+- `[DEBUG] csvLog: MATCH found!` — Process matched for CSV logging
+- `[DEBUG] csvLog: record added to buffer` — CSV record buffered
 - `[DEBUG] Flushing X CSV records` — Data persistence events
+- `[DEBUG] csvFlush: Writing X records to Y` — CSV file write operations
 
 ## Examples: Debug Session
 
@@ -168,9 +177,9 @@ Enable detailed output to troubleshoot state machine behavior:
 
 ### CSV Files Not Created
 
-- Verify `--csv-dir` directory exists or is writable
-- Check that `--csv-commands` contains valid process names (substring match)
-- Run with `--debug` to see CSV buffer flushing events
+- Verify `--csv-dir` directory exists or is writable (note: directory is created automatically if it doesn't exist)
+- Check that `--csv-commands` contains valid process names (substring match, case-insensitive)
+- Run with `--debug` to see CSV buffer flushing events and matching confirmation
 
 Use to monitor CPU usage of user processes without sudo access, ideal for:
 - You don't have sudo access
