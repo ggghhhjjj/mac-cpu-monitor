@@ -12,8 +12,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 APPLESCRIPT="$PROJECT_DIR/src/cpu-monitor.scpt"
 
+# Check if AppleScript file exists
+if [ ! -f "$APPLESCRIPT" ]; then
+    echo "Error: AppleScript not found at $APPLESCRIPT" >&2
+    exit 1
+fi
+
+# Check if osascript is available
+if ! command -v osascript &> /dev/null; then
+    echo "Error: osascript command not found. This script requires macOS." >&2
+    exit 1
+fi
+
 # Handle SIGINT (Ctrl+C) to ensure CSV flush
-trap 'kill $!; exit 0' SIGINT
+# Use 'wait' instead of 'kill' to allow graceful shutdown
+trap 'wait $!; exit 0' SIGINT
 
 # Run the AppleScript, passing all arguments
 osascript -l AppleScript "$APPLESCRIPT" "$@"

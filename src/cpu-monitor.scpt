@@ -76,76 +76,64 @@ end getTimestamp
 -- ============================================================================
 
 on getAllProcesses()
-	try
-		set psOut to do shell script "ps -axo pid,%cpu,comm"
-		set psLines to paragraphs of psOut
-		
-		set allProcs to {}
-		set cnt to 0
-		
-		repeat with i from 2 to count of psLines
-			set ln to (item i of psLines) as string
-			set ln to trim_ws(ln)
+	set retries to 3
+	set delay_sec to 1
+	
+	repeat with attempt from 1 to retries
+		try
+			set psOut to do shell script "ps -axo pid,%cpu,comm"
+			set psLines to paragraphs of psOut
 			
-			if ln is not "" then
-				set toks to split_ws(ln)
+			set allProcs to {}
+			set cnt to 0
+			
+			repeat with i from 2 to count of psLines
+				set ln to (item i of psLines) as string
+				set ln to trim_ws(ln)
 				
-				if (count of toks) >= 3 then
-					try
-						set p to ((item 1 of toks) as integer)
-						set c to ((item 2 of toks) as real)
-						
-						set nm to ""
-						repeat with j from 3 to count of toks
-							if nm is "" then
-								set nm to (item j of toks)
-							else
-								set nm to nm & " " & ((item j of toks) as string)
-							end if
-						end repeat
-						
-						set end of allProcs to {pid:p, name:nm, cpu:c}
-						set cnt to cnt + 1
-					on error
-					end try
+				if ln is not "" then
+					set toks to split_ws(ln)
+					
+					if (count of toks) >= 3 then
+						try
+							set p to ((item 1 of toks) as integer)
+							set c to ((item 2 of toks) as real)
+							
+							set nm to ""
+							repeat with j from 3 to count of toks
+								if nm is "" then
+									set nm to (item j of toks)
+								else
+									set nm to nm & " " & ((item j of toks) as string)
+								end if
+							end repeat
+							
+							set end of allProcs to {pid:p, name:nm, cpu:c}
+							set cnt to cnt + 1
+						on error
+						end try
+					end if
 				end if
+			end repeat
+			
+			printDbg("Sampling: total=" & cnt)
+			return allProcs
+			
+		on error err
+			if attempt = retries then
+				log "ERROR: ps command failed after " & retries & " retries: " & err
+				set shouldExit to true
+				return {}
+			else
+				printDbg("ps error on attempt " & attempt & ": " & err & " - retrying...")
+				delay delay_sec
+				set delay_sec to delay_sec * 2
 			end if
-		end repeat
-		
-		printDbg("Sampling: total=" & cnt)
-		return allProcs
-		
-	on error err
-		log "ps error: " & err
-		set shouldExit to true
-		return {}
-	end try
-end getAllProcesses
-
--- ============================================================================
--- PROCESS ALL DATA IN SINGLE PASS
--- ============================================================================
-
-on processAllProcessesOnce(allProcs)
-	if (count of allProcs) = 0 then
-		return {pid:-1, name:"", cpu:0}
-	end if
-	
-	set topProc to item 1 of allProcs
-	
-	repeat with proc in allProcs
-		-- Find top process
-		if (cpu of proc) > (cpu of topProc) then
-			set topProc to proc
-		end if
-		
-		-- Log CSV data for matching processes
-		csvLog((pid of proc), (name of proc), (cpu of proc))
+		end try
 	end repeat
 	
-	printDbg("Top process: pid=" & (pid of topProc) & " name=" & (name of topProc) & " cpu=" & (cpu of topProc))
-	return topProc
-end processAllProcessesOnce
+	return {}
+end getAllProcesses
 
 -- ============================================================================
 -- GET TOP PROCESS FROM LIST
@@ -166,6 +154,22 @@ on getTopProcessFromList(allProcs)
 	printDbg("Top process: pid=" & (pid of topProc) & " name=" & (name of topProc) & " cpu=" & (cpu of topProc))
 	return topProc
 end getTopProcessFromList
+
+-- ============================================================================
+-- PROCESS ALL DATA IN SINGLE PASS
+-- ============================================================================
+
+on processAllProcessesOnce(allProcs)
+	-- Find top process using consolidated function
+	set topProc to getTopProcessFromList(allProcs)
+	
+	-- Log CSV data for matching processes
+	repeat with proc in allProcs
+		csvLog((pid of proc), (name of proc), (cpu of proc))
+	end repeat
+	
+	return topProc
+end processAllProcessesOnce
 
 -- ============================================================================
 -- GET TOP PROCESS (backward compatibility)
@@ -244,34 +248,11 @@ end split_comma
 -- ============================================================================
 
 on toLower(s)
-	set s to s as string
-	set s to replace_tx(s, "A", "a")
-	set s to replace_tx(s, "B", "b")
-	set s to replace_tx(s, "C", "c")
-	set s to replace_tx(s, "D", "d")
-	set s to replace_tx(s, "E", "e")
-	set s to replace_tx(s, "F", "f")
-	set s to replace_tx(s, "G", "g")
-	set s to replace_tx(s, "H", "h")
-	set s to replace_tx(s, "I", "i")
-	set s to replace_tx(s, "J", "j")
-	set s to replace_tx(s, "K", "k")
-	set s to replace_tx(s, "L", "l")
-	set s to replace_tx(s, "M", "m")
-	set s to replace_tx(s, "N", "n")
-	set s to replace_tx(s, "O", "o")
-	set s to replace_tx(s, "P", "p")
-	set s to replace_tx(s, "Q", "q")
-	set s to replace_tx(s, "R", "r")
-	set s to replace_tx(s, "S", "s")
-	set s to replace_tx(s, "T", "t")
-	set s to replace_tx(s, "U", "u")
-	set s to replace_tx(s, "V", "v")
-	set s to replace_tx(s, "W", "w")
-	set s to replace_tx(s, "X", "x")
-	set s to replace_tx(s, "Y", "y")
-	set s to replace_tx(s, "Z", "z")
-	return s as string
+	try
+		return do shell script "echo " & quoted form of (s as string) & " | tr '[:upper:]' '[:lower:]'"
+	on error
+		return s as string
+	end try
 end toLower
 
 -- ============================================================================
@@ -319,10 +300,9 @@ on csvFlush()
 	
 	printDbg("Flush " & (count of csvBuf) & " records")
 	
-	-- Simplified approach: build file paths and write all matching records at once
-	set filePaths to {}
+	-- Build map of file paths to records (single pass O(n))
+	set fileRecordMap to {}
 	
-	-- First pass: collect unique file paths using indexed loop
 	repeat with bufIdx from 1 to count of csvBuf
 		set rec to item bufIdx of csvBuf
 		set matchedCmd to cmd of rec
@@ -330,40 +310,36 @@ on csvFlush()
 		set d to dir of conf
 		set fp to d & "/" & fn & ".csv"
 		
-		-- Check if this filepath is already in our list using indexed loop
-		set pathExists to false
-		repeat with pathIdx from 1 to count of filePaths
-			set existingPath to item pathIdx of filePaths
-			if existingPath = fp then
-				set pathExists to true
+		-- Find or create entry for this file path
+		set foundIdx to -1
+		repeat with mapIdx from 1 to count of fileRecordMap
+			set mapEntry to item mapIdx of fileRecordMap
+			if (filepath of mapEntry) = fp then
+				set foundIdx to mapIdx
 				exit repeat
 			end if
 		end repeat
 		
-		if not pathExists then
-			set end of filePaths to fp
+		if foundIdx = -1 then
+			-- New file path, create entry
+			set end of fileRecordMap to {filepath:fp, records:{rec}}
+		else
+			-- Existing file path, append record
+			set mapEntry to item foundIdx of fileRecordMap
+			set recs to records of mapEntry
+			set end of recs to rec
+			set records of mapEntry to recs
+			set item foundIdx of fileRecordMap to mapEntry
 		end if
 	end repeat
 	
-	printDbg("csvFlush: Found " & (count of filePaths) & " unique file paths")
+	printDbg("csvFlush: Found " & (count of fileRecordMap) & " unique file paths")
 	
-	-- Second pass: for each file path, collect and write all matching records
-	repeat with pathIdx from 1 to count of filePaths
-		set fp to item pathIdx of filePaths
-		set recordsToWrite to {}
-		
-		-- Collect all records for this file path
-		repeat with bufIdx from 1 to count of csvBuf
-			set rec to item bufIdx of csvBuf
-			set matchedCmd to cmd of rec
-			set fn to sanitizeFn(matchedCmd)
-			set d to dir of conf
-			set recPath to d & "/" & fn & ".csv"
-			
-			if recPath = fp then
-				set end of recordsToWrite to rec
-			end if
-		end repeat
+	-- Write all records for each file path
+	repeat with mapIdx from 1 to count of fileRecordMap
+		set mapEntry to item mapIdx of fileRecordMap
+		set fp to filepath of mapEntry
+		set recordsToWrite to records of mapEntry
 		
 		printDbg("csvFlush: Writing " & (count of recordsToWrite) & " records to " & fp)
 		set nhdr to not (fileExist(fp))
@@ -396,6 +372,7 @@ on sanitizeFn(n)
 	set n to replace_tx(n, " ", "_")
 	set n to replace_tx(n, "/", "_")
 	set n to replace_tx(n, ":", "_")
+	set n to replace_tx(n, "..", "_")
 	return n
 end sanitizeFn
 
@@ -463,6 +440,7 @@ on writeCsv(fp, rs, nhdr)
 		
 	on error err
 		printDbg("CSV error: " & err)
+		log "WARNING: Failed to write CSV to " & fp & " - data may be lost: " & err
 	end try
 end writeCsv
 
