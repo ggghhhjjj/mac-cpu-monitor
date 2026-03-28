@@ -305,8 +305,9 @@ on csvFlush()
 	printDbg("Flush " & (count of csvBuf) & " records")
 	
 	-- Build map of file paths to records
-	-- Note: Complexity is O(n*m) where n=records, m=unique files
-	-- For typical use (few CSV commands, 60s buffer), this is acceptable
+	-- Complexity: O(n*m) where n=records, m=unique files
+	-- Worst case: O(n²) if all records map to different files
+	-- Typical case: m << n (1-5 files), so effectively O(n)
 	set fileRecordMap to {}
 	
 	repeat with bufIdx from 1 to count of csvBuf
@@ -393,12 +394,11 @@ on sanitizeFn(n)
 		set n to "_" & n
 	end if
 	-- Truncate very long names (rare, but prevents filesystem issues)
-	-- Note: This may cause collisions for processes with very long similar names
-	-- To minimize collisions, we take first 190 chars + last 10 chars
+	-- Uses prefix + suffix to minimize collisions and indicate truncation
 	if (length of n) > 200 then
 		set prefix to text 1 thru 190 of n
 		set suffix to text -10 thru -1 of n
-		set n to prefix & suffix
+		set n to prefix & "..." & suffix
 	end if
 	return n
 end sanitizeFn
